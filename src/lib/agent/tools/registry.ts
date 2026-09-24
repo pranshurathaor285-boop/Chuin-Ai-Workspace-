@@ -6,7 +6,10 @@ import {
 } from "./filesystem";
 import { filesystemEditTool } from "./filesystem-edit";
 import { filesystemDeleteTool } from "./filesystem-delete";
+import { filesystemSearchTool } from "./filesystem-search";
 import { terminalExecuteTool } from "./terminal";
+import { httpRequestTool } from "./http-request";
+import { gitTool } from "./git";
 
 class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
@@ -49,15 +52,22 @@ export const toolRegistry = new ToolRegistry();
 // REGISTER ALL TOOLS
 // =====================
 
-// Filesystem tools
+// Filesystem tools (6)
 toolRegistry.register(filesystemReadTool);
 toolRegistry.register(filesystemWriteTool);
 toolRegistry.register(filesystemListTool);
 toolRegistry.register(filesystemEditTool);
 toolRegistry.register(filesystemDeleteTool);
+toolRegistry.register(filesystemSearchTool);
 
 // Terminal
 toolRegistry.register(terminalExecuteTool);
+
+// External
+toolRegistry.register(httpRequestTool);
+
+// Git
+toolRegistry.register(gitTool);
 
 if (process.env.NODE_ENV === "development") {
   console.log(
