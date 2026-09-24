@@ -25,11 +25,16 @@ export interface RunAgentResult {
   toolCalls: Array<{
     toolName: string;
     input: any;
+    output?: any;
     success: boolean;
     error?: string;
   }>;
 }
 
+/**
+ * Run an agent task — creates a task in DB, gives tools to LLM,
+ * executes tool calls, and loops until the LLM produces a final answer.
+ */
 export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
   const { userId, goal, conversationId, model } = input;
 
@@ -66,14 +71,12 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
   const aiTools: Record<string, any> = {};
   for (const toolDef of toolRegistry.getForAgent("general")) {
     const toolName = toolDef.name;
-    const safeName = toolName.replace(/\./g, "_");
-
-    aiTools[safeName] = aiTool({
+    aiTools[toolName.replace(/\./g, "_")] = aiTool({
       description: toolDef.description,
       parameters: toolDef.inputSchema,
-      execute: async (toolInput: any) => {
-        console.log(`[Agent] Tool call: ${toolName}`, toolInput);
-        const result = await executeTool(toolName, toolInput, context);
+      execute: async (input: any) => {
+        console.log(`[Agent] Tool call: ${toolName}`, input);
+        const result = await executeTool(toolName, input, context);
         console.log(`[Agent] Tool result:`, result);
         if (!result.success) {
           throw new Error(result.error || "Tool failed");
@@ -83,7 +86,7 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
     });
   }
 
-  // 5. Run the LLM with tools
+  // 5. Run the LLM with tools (max 5 steps to prevent loops)
   const toolCalls: RunAgentResult["toolCalls"] = [];
   let finalAnswer = "";
   const MAX_STEPS = 5;
@@ -93,27 +96,25 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
       model: openrouter(model || DEFAULT_MODEL),
       system: `You are Chuin AI, an AI software engineer.
 
-You have access to tools:
-- filesystem_read: Read file contents from the workspace
-- filesystem_write: Write/create files in the workspace
-- filesystem_list: List files and folders in the workspace
+You have access to tools that let you:
+- Read files (filesystem.read)
+- Write files (filesystem.write)
+- List files (filesystem.list)
 
 When the user asks you to create, read, or modify files, USE THE TOOLS.
-Do not describe what you would do — actually do it by calling the tools.
+Do not just describe what you would do — actually do it by calling the tools.
 After using tools, summarize what you did for the user.`,
       messages: [{ role: "user", content: goal }],
       tools: aiTools,
       maxSteps: MAX_STEPS,
       onStepFinish: async (step: any) => {
+        // Record each step in DB
         try {
           const stepRecord = await prisma.agentStep.create({
             data: {
               runId: run.id,
               stepNumber: step.stepNumber || 0,
-              type:
-                step.toolCalls && step.toolCalls.length > 0
-                  ? "TOOL_CALL"
-                  : "FINAL_ANSWER",
+              type: step.toolCalls && step.toolCalls.length > 0 ? "TOOL_CALL" : "FINAL_ANSWER",
               description: step.text || "Step executed",
               status: "COMPLETED",
               output: step as any,
@@ -121,11 +122,13 @@ After using tools, summarize what you did for the user.`,
             },
           });
 
+          // Record tool calls
           if (step.toolCalls && step.toolCalls.length > 0) {
             for (const tc of step.toolCalls) {
               toolCalls.push({
                 toolName: tc.toolName,
                 input: tc.args,
+                output: undefined,
                 success: true,
               });
 
@@ -146,6 +149,7 @@ After using tools, summarize what you did for the user.`,
       },
     });
 
+    // Collect the final text
     for await (const chunk of result.textStream) {
       finalAnswer += chunk;
     }
@@ -170,6 +174,7 @@ After using tools, summarize what you did for the user.`,
     };
   }
 
+  // 6. Mark task as completed
   await prisma.agentTask.update({
     where: { id: task.id },
     data: { status: "COMPLETED", completedAt: new Date() },
