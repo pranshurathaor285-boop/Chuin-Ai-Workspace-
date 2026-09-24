@@ -4,11 +4,10 @@ import {
   filesystemWriteTool,
   filesystemListTool,
 } from "./filesystem";
+import { filesystemEditTool } from "./filesystem-edit";
+import { filesystemDeleteTool } from "./filesystem-delete";
+import { terminalExecuteTool } from "./terminal";
 
-/**
- * Central Tool Registry
- * All tools must be registered here to be available to agents.
- */
 class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
 
@@ -44,7 +43,6 @@ class ToolRegistry {
   }
 }
 
-// Singleton registry
 export const toolRegistry = new ToolRegistry();
 
 // =====================
@@ -55,8 +53,12 @@ export const toolRegistry = new ToolRegistry();
 toolRegistry.register(filesystemReadTool);
 toolRegistry.register(filesystemWriteTool);
 toolRegistry.register(filesystemListTool);
+toolRegistry.register(filesystemEditTool);
+toolRegistry.register(filesystemDeleteTool);
 
-// Log registered tools on module load
+// Terminal
+toolRegistry.register(terminalExecuteTool);
+
 if (process.env.NODE_ENV === "development") {
   console.log(
     `[ToolRegistry] Registered ${toolRegistry.size()} tools:`,
