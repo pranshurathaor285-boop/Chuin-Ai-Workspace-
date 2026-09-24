@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, memo, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import { ModelPicker } from "@/components/chat/model-picker";
+import { ToolResultCard } from "@/components/chat/tool-result-card";
 import { DEFAULT_MODEL } from "@/lib/models";
 
 const MemoizedUserMessage = memo(function MemoizedUserMessage({
@@ -63,7 +64,7 @@ export default function ChatPage() {
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [toolActivity, setToolActivity] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -71,23 +72,6 @@ export default function ChatPage() {
 
   const { messages, append, isLoading, error, stop, setMessages } = useChat({
     api: "/api/chat",
-    onToolCall: ({ toolCall }) => {
-      const toolName = toolCall.toolName || "unknown";
-      const displayName = toolName.replace(/_/g, ".");
-      console.log("Tool called:", displayName);
-
-      // Map tool names to friendly messages
-      const friendlyMessages: Record<string, string> = {
-        filesystem_read: "📖 Reading file...",
-        filesystem_write: "✍️ Writing file...",
-        filesystem_list: "📁 Listing files...",
-        filesystem_edit: "✏️ Editing file...",
-        filesystem_delete: "🗑️ Deleting file...",
-        terminal_execute: "💻 Running command...",
-      };
-
-      setToolActivity(friendlyMessages[toolName] || `🔧 Using ${displayName}...`);
-    },
     onFinish: async (message) => {
       setToolActivity(null);
       const convId = conversationIdRef.current;
@@ -277,22 +261,48 @@ export default function ChatPage() {
   };
 
   const renderedMessages = useMemo(() => {
-    return messages.map((m, idx) => (
-      <div key={m.id}>
-        {m.role === "user" ? (
-          <MemoizedUserMessage content={m.content} />
-        ) : (
-          <div className="flex justify-start w-full">
-            <div className="max-w-[85%] min-w-0 text-neutral-900">
-              <MarkdownRenderer
-                content={m.content}
-                isStreaming={isLoading && idx === messages.length - 1}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-    ));
+    return messages.map((m, idx) => {
+      const toolInvocations = (m as any).toolInvocations || [];
+
+      return (
+        <div key={m.id} className="space-y-3">
+          {m.role === "user" ? (
+            <MemoizedUserMessage content={m.content} />
+          ) : (
+            <>
+              {toolInvocations.length > 0 && (
+                <div className="space-y-2">
+                  {toolInvocations.map((inv: any, i: number) => (
+                    <ToolResultCard
+                      key={`${m.id}-tool-${i}`}
+                      result={{
+                        toolName: inv.toolName,
+                        input: inv.args,
+                        output: inv.result,
+                        success: inv.state === "result",
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {m.content && (
+                <div className="flex justify-start w-full">
+                  <div className="max-w-[85%] min-w-0 text-neutral-900 dark:text-neutral-100">
+                    <MarkdownRenderer
+                      content={m.content}
+                      isStreaming={
+                        isLoading && idx === messages.length - 1 && !m.content
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      );
+    });
   }, [messages, isLoading]);
 
   return (
@@ -310,6 +320,8 @@ export default function ChatPage() {
         >
           <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 w-full">
             {renderedMessages}
+
+            
             {error && (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                 Error: {error.message}

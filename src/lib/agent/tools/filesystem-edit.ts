@@ -33,10 +33,7 @@ const EditOutputSchema = z.object({
   bytesChanged: z.number(),
 });
 
-export const filesystemEditTool: ToolDefinition<
-  z.infer<typeof EditInputSchema>,
-  z.infer<typeof EditOutputSchema>
-> = {
+export const filesystemEditTool: ToolDefinition = {
   name: "filesystem.edit",
   description:
     "Edit an existing file by replacing an exact string with new content. The oldContent must match EXACTLY what's in the file. Fails if oldContent is not found. Returns the number of replacements made.",
@@ -45,7 +42,7 @@ export const filesystemEditTool: ToolDefinition<
   permissionLevel: "WRITE",
   timeout: 10000,
   agentAccess: ["coding", "general"],
-  async execute(input, context) {
+  async execute(input: any, context: ToolContext) {
     const workspaceRoot = await ensureWorkspace(context);
     const fullPath = safePath(workspaceRoot, input.path);
 

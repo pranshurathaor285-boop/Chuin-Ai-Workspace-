@@ -44,10 +44,7 @@ const GitOutputSchema = z.object({
 
 const MAX_OUTPUT = 20000;
 
-export const gitTool: ToolDefinition<
-  z.infer<typeof GitInputSchema>,
-  z.infer<typeof GitOutputSchema>
-> = {
+export const gitTool: ToolDefinition = {
   name: "git.execute",
   description:
     "Run a git command inside the workspace. Only safe git subcommands allowed (status, diff, log, add, commit, etc.). No remote operations (push, pull, clone). Returns stdout, stderr, and exit code.",
@@ -56,7 +53,7 @@ export const gitTool: ToolDefinition<
   permissionLevel: "WRITE",
   timeout: 30000,
   agentAccess: ["coding", "general"],
-  async execute(input, context) {
+  async execute(input: any, context: ToolContext) {
     const workspaceRoot = await ensureWorkspace(context);
     const cmd = input.command.trim();
 
@@ -82,7 +79,8 @@ export const gitTool: ToolDefinition<
         env: {
           PATH: process.env.PATH,
           HOME: workspaceRoot,
-          GIT_TERMINAL_PROMPT: "0", // Prevent interactive prompts
+          GIT_TERMINAL_PROMPT: "0",
+          NODE_ENV: "development", // Prevent interactive prompts
         },
       });
 

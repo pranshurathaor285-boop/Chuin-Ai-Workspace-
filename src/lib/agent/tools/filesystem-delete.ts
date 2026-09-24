@@ -36,10 +36,7 @@ const DeleteOutputSchema = z.object({
   type: z.enum(["file", "directory"]),
 });
 
-export const filesystemDeleteTool: ToolDefinition<
-  z.infer<typeof DeleteInputSchema>,
-  z.infer<typeof DeleteOutputSchema>
-> = {
+export const filesystemDeleteTool: ToolDefinition = {
   name: "filesystem.delete",
   description:
     "Delete a file or folder inside the workspace. For folders, set recursive=true. Cannot delete the workspace root.",
@@ -48,7 +45,7 @@ export const filesystemDeleteTool: ToolDefinition<
   permissionLevel: "DESTRUCTIVE",
   timeout: 10000,
   agentAccess: ["coding", "general"],
-  async execute(input, context) {
+  async execute(input: any, context: ToolContext) {
     const workspaceRoot = await ensureWorkspace(context);
     const fullPath = safePath(workspaceRoot, input.path);
 

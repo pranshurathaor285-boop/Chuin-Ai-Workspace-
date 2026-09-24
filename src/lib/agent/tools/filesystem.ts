@@ -46,10 +46,7 @@ const ReadOutputSchema = z.object({
   truncated: z.boolean(),
 });
 
-export const filesystemReadTool: ToolDefinition<
-  z.infer<typeof ReadInputSchema>,
-  z.infer<typeof ReadOutputSchema>
-> = {
+export const filesystemReadTool: ToolDefinition = {
   name: "filesystem.read",
   description:
     "Read the contents of a file inside the project workspace. Returns the file content, size, and line count. For large files, use startLine and endLine to read a specific range.",
@@ -58,7 +55,7 @@ export const filesystemReadTool: ToolDefinition<
   permissionLevel: "READ",
   timeout: 5000,
   agentAccess: ["coding", "general"],
-  async execute(input, context) {
+  async execute(input: any, context: ToolContext) {
     const workspaceRoot = await ensureWorkspace(context);
     const fullPath = safePath(workspaceRoot, input.path);
 
@@ -102,10 +99,7 @@ const WriteOutputSchema = z.object({
   created: z.boolean(),
 });
 
-export const filesystemWriteTool: ToolDefinition<
-  z.infer<typeof WriteInputSchema>,
-  z.infer<typeof WriteOutputSchema>
-> = {
+export const filesystemWriteTool: ToolDefinition = {
   name: "filesystem.write",
   description:
     "Write or overwrite a file inside the project workspace. Creates parent directories automatically. Returns the bytes written.",
@@ -114,7 +108,7 @@ export const filesystemWriteTool: ToolDefinition<
   permissionLevel: "WRITE",
   timeout: 10000,
   agentAccess: ["coding", "general"],
-  async execute(input, context) {
+  async execute(input: any, context: ToolContext) {
     const workspaceRoot = await ensureWorkspace(context);
     const fullPath = safePath(workspaceRoot, input.path);
 
@@ -158,10 +152,7 @@ const ListOutputSchema = z.object({
   total: z.number(),
 });
 
-export const filesystemListTool: ToolDefinition<
-  z.infer<typeof ListInputSchema>,
-  z.infer<typeof ListOutputSchema>
-> = {
+export const filesystemListTool: ToolDefinition = {
   name: "filesystem.list",
   description:
     "List files and folders inside the project workspace. Returns a flat list of entries with paths, types, and sizes. Use depth to control recursion.",
@@ -170,7 +161,7 @@ export const filesystemListTool: ToolDefinition<
   permissionLevel: "READ",
   timeout: 10000,
   agentAccess: ["coding", "general"],
-  async execute(input, context) {
+  async execute(input: any, context: ToolContext) {
     const workspaceRoot = await ensureWorkspace(context);
     const fullPath = safePath(workspaceRoot, input.path || ".");
 

@@ -50,10 +50,7 @@ const ExecuteOutputSchema = z.object({
 
 const MAX_OUTPUT = 10000;
 
-export const terminalExecuteTool: ToolDefinition<
-  z.infer<typeof ExecuteInputSchema>,
-  z.infer<typeof ExecuteOutputSchema>
-> = {
+export const terminalExecuteTool: ToolDefinition = {
   name: "terminal.execute",
   description:
     "Execute a shell command inside the workspace. Only safe commands allowed (ls, cat, node, npm, git, python3, etc.). Cannot access system files outside workspace. Returns stdout, stderr, and exit code.",
@@ -62,7 +59,7 @@ export const terminalExecuteTool: ToolDefinition<
   permissionLevel: "WRITE",
   timeout: 60000,
   agentAccess: ["coding", "general"],
-  async execute(input, context) {
+  async execute(input: any, context: ToolContext) {
     const workspaceRoot = await ensureWorkspace(context);
     const cmd = input.command.trim();
 
@@ -90,7 +87,7 @@ export const terminalExecuteTool: ToolDefinition<
           PATH: process.env.PATH,
           HOME: workspaceRoot,
           NODE_ENV: "development",
-        },
+        } as NodeJS.ProcessEnv,
       });
 
       const stdoutTrunc = stdout.length > MAX_OUTPUT;

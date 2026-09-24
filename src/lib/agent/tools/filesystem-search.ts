@@ -28,24 +28,21 @@ const SearchInputSchema = z.object({
     .describe("Optional file extension filter (e.g., 'ts', 'py')"),
 });
 
-const SearchMatchSchema = z.object({
-  file: z.string(),
-  line: z.number(),
-  content: z.string(),
-});
-
 const SearchOutputSchema = z.object({
-  matches: z.array(SearchMatchSchema),
+  matches: z.array(
+    z.object({
+      file: z.string(),
+      line: z.number(),
+      content: z.string(),
+    })
+  ),
   totalFiles: z.number(),
   totalMatches: z.number(),
 });
 
 const MAX_MATCHES = 50;
 
-export const filesystemSearchTool: ToolDefinition<
-  z.infer<typeof SearchInputSchema>,
-  z.infer<typeof SearchOutputSchema>
-> = {
+export const filesystemSearchTool: ToolDefinition = {
   name: "filesystem.search",
   description:
     "Search for text inside files within the workspace. Returns matching lines with file paths and line numbers. Case-insensitive. Max 50 results. Optionally filter by file extension.",
@@ -54,7 +51,7 @@ export const filesystemSearchTool: ToolDefinition<
   permissionLevel: "READ",
   timeout: 15000,
   agentAccess: ["coding", "general"],
-  async execute(input, context) {
+  async execute(input: any, context: ToolContext) {
     const workspaceRoot = await ensureWorkspace(context);
     const searchRoot = safePath(workspaceRoot, input.path || ".");
     const queryLower = input.query.toLowerCase();
@@ -81,10 +78,7 @@ export const filesystemSearchTool: ToolDefinition<
           if (SKIP_DIRS.has(entry.name)) continue;
           await walk(fullPath, relPath);
         } else if (entry.isFile()) {
-          if (
-            input.extension &&
-            !entry.name.endsWith(`.${input.extension}`)
-          ) {
+          if (input.extension && !entry.name.endsWith(`.${input.extension}`)) {
             continue;
           }
 

@@ -53,10 +53,7 @@ const BLOCKED_HOSTS = [
   "::1",
 ];
 
-export const httpRequestTool: ToolDefinition<
-  z.infer<typeof HttpInputSchema>,
-  z.infer<typeof HttpOutputSchema>
-> = {
+export const httpRequestTool: ToolDefinition = {
   name: "http.request",
   description:
     "Make an HTTP request to an external URL. Supports GET, POST, PUT, DELETE, PATCH. Cannot access localhost or internal networks (SSRF protection). Returns status, headers, and body. Max 50KB response.",
@@ -65,7 +62,7 @@ export const httpRequestTool: ToolDefinition<
   permissionLevel: "EXTERNAL",
   timeout: TIMEOUT + 5000,
   agentAccess: ["coding", "general"],
-  async execute(input, context) {
+  async execute(input: any, context: ToolContext) {
     // Parse URL and check for SSRF
     let parsedUrl: URL;
     try {
