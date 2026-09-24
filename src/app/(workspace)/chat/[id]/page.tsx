@@ -21,6 +21,26 @@ const MemoizedUserMessage = memo(function MemoizedUserMessage({
   );
 });
 
+
+function ActivityIndicator({ activity }: { activity: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
+      <div className="flex gap-1">
+        <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+        <div
+          className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500"
+          style={{ animationDelay: "150ms" }}
+        />
+        <div
+          className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500"
+          style={{ animationDelay: "300ms" }}
+        />
+      </div>
+      <span>{activity}</span>
+    </div>
+  );
+}
+
 interface PendingFile {
   id: string;
   name: string;
@@ -42,6 +62,7 @@ export default function ChatPage() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [toolActivity, setToolActivity] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,7 +71,25 @@ export default function ChatPage() {
 
   const { messages, append, isLoading, error, stop, setMessages } = useChat({
     api: "/api/chat",
+    onToolCall: ({ toolCall }) => {
+      const toolName = toolCall.toolName || "unknown";
+      const displayName = toolName.replace(/_/g, ".");
+      console.log("Tool called:", displayName);
+
+      // Map tool names to friendly messages
+      const friendlyMessages: Record<string, string> = {
+        filesystem_read: "📖 Reading file...",
+        filesystem_write: "✍️ Writing file...",
+        filesystem_list: "📁 Listing files...",
+        filesystem_edit: "✏️ Editing file...",
+        filesystem_delete: "🗑️ Deleting file...",
+        terminal_execute: "💻 Running command...",
+      };
+
+      setToolActivity(friendlyMessages[toolName] || `🔧 Using ${displayName}...`);
+    },
     onFinish: async (message) => {
+      setToolActivity(null);
       const convId = conversationIdRef.current;
       if (!convId || !message.content) return;
       try {
@@ -276,7 +315,9 @@ export default function ChatPage() {
                 Error: {error.message}
               </div>
             )}
-            {isLoading && (
+            {toolActivity && <ActivityIndicator activity={toolActivity} />}
+
+            {isLoading && !toolActivity && (
               <div className="flex items-center gap-2">
                 <div className="flex gap-1">
                   <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-400" />
