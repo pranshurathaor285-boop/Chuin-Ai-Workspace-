@@ -10,6 +10,12 @@ import { filesystemSearchTool } from "./filesystem-search";
 import { terminalExecuteTool } from "./terminal";
 import { httpRequestTool } from "./http-request";
 import { gitTool } from "./git";
+import {
+  projectFilesReadTool,
+  projectFilesWriteTool,
+  projectFilesListTool,
+  projectFilesDeleteTool,
+} from "./filesystem-project";
 
 class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
@@ -68,6 +74,12 @@ toolRegistry.register(httpRequestTool);
 
 // Git
 toolRegistry.register(gitTool);
+
+// Project filesystem (Phase 4)
+toolRegistry.register(projectFilesReadTool);
+toolRegistry.register(projectFilesWriteTool);
+toolRegistry.register(projectFilesListTool);
+toolRegistry.register(projectFilesDeleteTool);
 
 if (process.env.NODE_ENV === "development") {
   console.log(

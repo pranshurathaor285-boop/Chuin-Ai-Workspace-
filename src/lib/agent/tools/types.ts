@@ -19,6 +19,7 @@ export interface ToolContext {
   runId?: string;
   stepId?: string;
   workspaceRoot?: string; // sandboxed directory for the task
+  projectId?: string;     // real project ID (Phase 4)
 }
 
 export interface ToolResult<TOutput = any> {

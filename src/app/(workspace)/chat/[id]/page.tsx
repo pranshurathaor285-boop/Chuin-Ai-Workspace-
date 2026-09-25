@@ -57,6 +57,14 @@ export default function ChatPage() {
 
   const [input, setInput] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_MODEL);
+  const [projectId, setProjectId] = useState<string | null>(null);
+
+  // Read projectId from URL query on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pid = params.get("project");
+    if (pid) setProjectId(pid);
+  }, []);
   const [conversationId, setConversationId] = useState<string | null>(
     isNew ? null : urlId
   );

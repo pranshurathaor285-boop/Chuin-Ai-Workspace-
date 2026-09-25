@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { messages, model } = body;
+    const { messages, model, projectId } = body;
 
     const modelId = model || DEFAULT_MODEL;
 
@@ -58,6 +58,7 @@ export async function POST(req: Request) {
     const toolContext: ToolContext = {
       userId,
       workspaceRoot: `/tmp/chuin-workspace/${userId}`,
+      projectId: projectId || undefined,
     };
 
     // Convert registry tools to AI SDK tools

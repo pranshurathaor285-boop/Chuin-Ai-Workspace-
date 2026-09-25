@@ -16,6 +16,7 @@ export interface RunAgentInput {
   goal: string;
   conversationId?: string;
   model?: string;
+  projectId?: string;
 }
 
 export interface RunAgentResult {
@@ -36,7 +37,7 @@ export interface RunAgentResult {
  * executes tool calls, and loops until the LLM produces a final answer.
  */
 export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
-  const { userId, goal, conversationId, model } = input;
+  const { userId, goal, conversationId, model, projectId } = input;
 
   // 1. Create AgentTask in DB
   const task = await prisma.agentTask.create({
@@ -65,6 +66,7 @@ export async function runAgent(input: RunAgentInput): Promise<RunAgentResult> {
     taskId: task.id,
     runId: run.id,
     workspaceRoot: `/tmp/chuin-workspace/${userId}`,
+    projectId: projectId || undefined,
   };
 
   // 4. Convert registry tools to AI SDK tools
