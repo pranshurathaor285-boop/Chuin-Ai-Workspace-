@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { TITLE_GENERATION_PROMPT } from "@/lib/agent/prompts";
 
 export const runtime = "edge";
 
@@ -33,8 +34,7 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: "system",
-            content:
-              "You generate short, descriptive titles for chat conversations. Given the user's first message, reply with ONLY a title — 2-5 words, no quotes, no punctuation at the end, no explanation. Use Title Case. Examples: 'React Hooks Explained', 'Python Debugging Help', 'Landing Page Design', 'SQL Query Optimization'.",
+            content: TITLE_GENERATION_PROMPT,
           },
           {
             role: "user",

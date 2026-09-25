@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth/config";
 import { toolRegistry } from "@/lib/agent/tools/registry";
 import { executeTool } from "@/lib/agent/tools/executor";
 import type { ToolContext } from "@/lib/agent/tools/types";
+import { CHAT_SYSTEM_PROMPT } from "@/lib/agent/prompts";
 
 export const maxDuration = 60;
 
@@ -12,6 +13,7 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY || "",
 });
 
+// Fast + reliable default — tested to be ~1.5s response
 const DEFAULT_MODEL = "openrouter/free";
 
 export async function POST(req: Request) {
@@ -81,18 +83,7 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: openrouter(modelId),
-      system: `You are Chuin AI, an AI software engineer.
-
-You have access to tools:
-- filesystem_read: Read file contents
-- filesystem_write: Create or overwrite files
-- filesystem_list: List files in the workspace
-
-IMPORTANT: When the user asks you to create, read, or modify files, USE THE TOOLS.
-Do not describe what you would do — actually do it by calling the tools.
-After using a tool, briefly summarize what you did for the user.
-
-For general chat (questions, explanations), respond normally without using tools.`,
+      system: CHAT_SYSTEM_PROMPT,
       messages: cleanMessages,
       tools: aiTools,
       maxSteps: 5,
