@@ -111,6 +111,8 @@ model Project {
   description String?  @db.Text
   status      String   @default("active")
   user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files       ProjectFile[]
+  checkpoints ProjectCheckpoint[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -214,4 +216,55 @@ model AgentEvent {
 
   @@index([taskId, createdAt])
   @@map("agent_events")
+}
+
+// =====================
+// PHASE 4: PROJECT FILESYSTEM
+// =====================
+
+model ProjectFile {
+  id           String   @id @default(cuid())
+  projectId    String
+  path         String   // relative path inside project
+  content      String   @db.Text
+  language     String?  // detected language (ts, js, python, etc.)
+  size         Int
+  hash         String   // SHA-256 of content
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, path])
+  @@index([projectId])
+  @@map("project_files")
+}
+
+model ProjectCheckpoint {
+  id         String   @id @default(cuid())
+  projectId  String
+  name       String
+  description String? @db.Text
+  taskId     String?  // which agent task created this
+  fileCount  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  project Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  files   CheckpointFile[]
+
+  @@index([projectId, createdAt])
+  @@map("project_checkpoints")
+}
+
+model CheckpointFile {
+  id           String @id @default(cuid())
+  checkpointId String
+  path         String
+  content      String @db.Text
+  hash         String
+
+  checkpoint ProjectCheckpoint @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+
+  @@index([checkpointId])
+  @@map("checkpoint_files")
 }
