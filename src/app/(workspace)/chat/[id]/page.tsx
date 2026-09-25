@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import { ModelPicker } from "@/components/chat/model-picker";
 import { ToolResultCard } from "@/components/chat/tool-result-card";
+import { MessageActions } from "@/components/chat/message-actions";
 import { DEFAULT_MODEL } from "@/lib/models";
 
 const MemoizedUserMessage = memo(function MemoizedUserMessage({
@@ -267,7 +268,12 @@ export default function ChatPage() {
       return (
         <div key={m.id} className="space-y-3">
           {m.role === "user" ? (
-            <MemoizedUserMessage content={m.content} />
+            <div>
+              <MemoizedUserMessage content={m.content} />
+              <div className="mt-1 flex justify-end pr-1">
+                <MessageActions content={m.content} isUser={true} />
+              </div>
+            </div>
           ) : (
             <>
               {toolInvocations.length > 0 && (
@@ -287,15 +293,33 @@ export default function ChatPage() {
               )}
 
               {m.content && (
-                <div className="flex justify-start w-full">
-                  <div className="max-w-[85%] min-w-0 text-neutral-900 dark:text-neutral-100">
-                    <MarkdownRenderer
-                      content={m.content}
-                      isStreaming={
-                        isLoading && idx === messages.length - 1 && !m.content
-                      }
-                    />
+                <div className="flex flex-col">
+                  <div className="flex justify-start w-full">
+                    <div className="max-w-[85%] min-w-0 text-neutral-900 dark:text-neutral-100">
+                      <MarkdownRenderer
+                        content={m.content}
+                        isStreaming={
+                          isLoading && idx === messages.length - 1
+                        }
+                      />
+                    </div>
                   </div>
+                  {!(isLoading && idx === messages.length - 1) && (
+                    <div className="mt-1 pl-1">
+                      <MessageActions
+                        content={m.content}
+                        isUser={false}
+                        onRegenerate={() => {
+                          // Find last user message before this assistant
+                          const before = messages.slice(0, idx).reverse();
+                          const lastUser = before.find((x) => x.role === "user");
+                          if (lastUser) {
+                            append({ role: "user", content: lastUser.content });
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </>
