@@ -16,6 +16,11 @@ import {
   projectFilesListTool,
   projectFilesDeleteTool,
 } from "./filesystem-project";
+import {
+  projectCheckpointCreateTool,
+  projectCheckpointListTool,
+  projectCheckpointRestoreTool,
+} from "./checkpoint";
 
 class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
@@ -80,6 +85,11 @@ toolRegistry.register(projectFilesReadTool);
 toolRegistry.register(projectFilesWriteTool);
 toolRegistry.register(projectFilesListTool);
 toolRegistry.register(projectFilesDeleteTool);
+
+// Checkpoints (Phase 4)
+toolRegistry.register(projectCheckpointCreateTool);
+toolRegistry.register(projectCheckpointListTool);
+toolRegistry.register(projectCheckpointRestoreTool);
 
 if (process.env.NODE_ENV === "development") {
   console.log(
