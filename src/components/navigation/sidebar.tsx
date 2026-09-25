@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { ChatSearch } from "./chat-search";
 
 interface SidebarProps {
   open: boolean;
@@ -59,24 +60,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
     if (!confirm("Delete this chat? This cannot be undone.")) return;
-
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/conversations/${id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/conversations/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
-
       setConversations((prev) => prev.filter((c) => c.id !== id));
-
       if (pathname === `/chat/${id}`) {
         window.location.href = "/chat/new";
       }
     } catch (err) {
       console.error("Delete failed:", err);
-      alert("Failed to delete chat. Please try again.");
+      alert("Failed to delete chat.");
     } finally {
       setDeletingId(null);
       setMenuOpenId(null);
@@ -97,7 +92,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       cancelRename();
       return;
     }
-
     setSavingId(id);
     try {
       const res = await fetch(`/api/conversations/${id}`, {
@@ -105,15 +99,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: trimmed }),
       });
-
       if (!res.ok) throw new Error("Rename failed");
-
       setConversations((prev) =>
         prev.map((c) => (c.id === id ? { ...c, title: trimmed } : c))
       );
     } catch (err) {
       console.error("Rename failed:", err);
-      alert("Failed to rename chat. Please try again.");
+      alert("Failed to rename chat.");
     } finally {
       setSavingId(null);
       setRenamingId(null);
@@ -132,7 +124,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     const mins = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
-
     if (mins < 1) return "now";
     if (mins < 60) return `${mins}m`;
     if (hours < 24) return `${hours}h`;
@@ -152,20 +143,22 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-neutral-200 bg-white transition-transform duration-200 ease-out md:static md:z-0 md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-neutral-200 bg-white transition-transform duration-200 ease-out dark:border-neutral-800 dark:bg-neutral-950 md:static md:z-0 md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 px-4">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 px-4 dark:border-neutral-800">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-xs font-semibold text-white">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-xs font-semibold text-white dark:bg-neutral-100 dark:text-neutral-900">
               C
             </div>
-            <span className="text-sm font-medium text-neutral-900">Chuin AI</span>
+            <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+              Chuin AI
+            </span>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 md:hidden"
+            className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 md:hidden"
             aria-label="Close menu"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -178,7 +171,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         <div className="p-3">
           <button
             onClick={handleNewChat}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14" />
@@ -188,21 +181,25 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
 
+        <ChatSearch />
+
         <div className="flex-1 overflow-y-auto px-3 pb-3">
           <div className="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-neutral-400">
             Recent Chats
           </div>
 
           {conversations.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-neutral-200 px-3 py-4 text-center">
-              <p className="text-xs text-neutral-500">No chats yet</p>
+            <div className="rounded-lg border border-dashed border-neutral-200 px-3 py-4 text-center dark:border-neutral-800">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                No chats yet
+              </p>
             </div>
           ) : (
             <div className="space-y-0.5">
               {conversations.map((conv) => (
                 <div key={conv.id} className="relative">
                   {renamingId === conv.id ? (
-                    <div className="rounded-lg border border-neutral-300 bg-white p-2">
+                    <div className="rounded-lg border border-neutral-300 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-900">
                       <input
                         ref={renameInputRef}
                         type="text"
@@ -217,21 +214,21 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                             cancelRename();
                           }
                         }}
-                        className="w-full rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-neutral-500"
+                        className="w-full rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                         placeholder="Chat name"
                       />
                       <div className="mt-2 flex items-center gap-1">
                         <button
                           onClick={() => submitRename(conv.id)}
                           disabled={savingId === conv.id || !renameValue.trim()}
-                          className="flex-1 rounded-md bg-neutral-900 px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-neutral-800 disabled:bg-neutral-300"
+                          className="flex-1 rounded-md bg-neutral-900 px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-neutral-800 disabled:bg-neutral-300 dark:bg-neutral-100 dark:text-neutral-900"
                         >
                           {savingId === conv.id ? "Saving..." : "Save"}
                         </button>
                         <button
                           onClick={cancelRename}
                           disabled={savingId === conv.id}
-                          className="flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50"
+                          className="flex-1 rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
                         >
                           Cancel
                         </button>
@@ -243,8 +240,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                         href={`/chat/${conv.id}`}
                         className={`group flex items-center justify-between rounded-lg px-3 py-2 pr-9 text-sm transition-colors ${
                           isActive(`/chat/${conv.id}`)
-                            ? "bg-neutral-100 font-medium text-neutral-900"
-                            : "text-neutral-700 hover:bg-neutral-100"
+                            ? "bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
+                            : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                         }`}
                       >
                         <span className="min-w-0 flex-1 truncate">{conv.title}</span>
@@ -259,7 +256,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                           e.stopPropagation();
                           setMenuOpenId(menuOpenId === conv.id ? null : conv.id);
                         }}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900 dark:hover:bg-neutral-700 dark:hover:text-neutral-100"
                         aria-label="Chat options"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -275,10 +272,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                             className="fixed inset-0 z-40"
                             onClick={() => setMenuOpenId(null)}
                           />
-                          <div className="absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
+                          <div className="absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
                             <button
                               onClick={(e) => startRename(conv.id, conv.title, e)}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-700 transition-colors hover:bg-neutral-100"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -288,7 +285,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                             <button
                               onClick={(e) => handleDelete(conv.id, e)}
                               disabled={deletingId === conv.id}
-                              className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                              className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-neutral-800 dark:hover:bg-red-950"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M3 6h18" />
@@ -308,13 +305,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           )}
         </div>
 
-        <div className="border-t border-neutral-200 p-3">
+        <div className="border-t border-neutral-200 p-3 dark:border-neutral-800">
           <Link
             href="/settings"
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
               isActive("/settings")
-                ? "bg-neutral-100 font-medium text-neutral-900"
-                : "text-neutral-700 hover:bg-neutral-100"
+                ? "bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
+                : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
             }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
