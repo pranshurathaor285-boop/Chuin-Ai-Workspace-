@@ -24,7 +24,7 @@ export default function NewProjectPage() {
         body: JSON.stringify({ name, description }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         throw new Error(data.error || "Failed to create project");
@@ -39,16 +39,23 @@ export default function NewProjectPage() {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-neutral-200 px-6 py-5">
-        <h1 className="text-xl font-semibold text-neutral-900">Create Project</h1>
-        <p className="mt-1 text-sm text-neutral-500">Describe what you want to build</p>
+    <div className="flex h-full flex-col bg-neutral-50 dark:bg-neutral-950">
+      <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-800">
+        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+          Create Project
+        </h1>
+        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          Give your project a name to get started
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
         <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-5">
           <div>
-            <label htmlFor="name" className="mb-2 block text-sm font-medium text-neutral-900">
+            <label
+              htmlFor="name"
+              className="mb-2 block text-sm font-medium text-neutral-900 dark:text-neutral-100"
+            >
               Project Name
             </label>
             <input
@@ -56,30 +63,34 @@ export default function NewProjectPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Todo App"
-              className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-neutral-400"
+              placeholder="e.g., My SaaS App"
+              className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-600"
               required
               disabled={creating}
+              autoFocus
             />
           </div>
 
           <div>
-            <label htmlFor="description" className="mb-2 block text-sm font-medium text-neutral-900">
-              Description
+            <label
+              htmlFor="description"
+              className="mb-2 block text-sm font-medium text-neutral-900 dark:text-neutral-100"
+            >
+              Description <span className="text-neutral-400">(optional)</span>
             </label>
             <textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What do you want to build?"
-              rows={4}
-              className="w-full resize-none rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-neutral-400"
+              rows={3}
+              className="w-full resize-none rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-600"
               disabled={creating}
             />
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
               {error}
             </div>
           )}
@@ -88,7 +99,7 @@ export default function NewProjectPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="rounded-xl px-4 py-2.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100"
+              className="rounded-xl px-4 py-2.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
               disabled={creating}
             >
               Cancel
@@ -96,9 +107,9 @@ export default function NewProjectPage() {
             <button
               type="submit"
               disabled={!name.trim() || creating}
-              className="rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800 disabled:bg-neutral-300"
+              className="rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
             >
-              {creating ? "Creating..." : "Create with Chuin"}
+              {creating ? "Creating..." : "Create Project"}
             </button>
           </div>
         </form>

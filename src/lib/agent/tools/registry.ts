@@ -21,6 +21,12 @@ import {
   projectCheckpointListTool,
   projectCheckpointRestoreTool,
 } from "./checkpoint";
+import {
+  sandboxExecuteTool,
+  sandboxWriteTool,
+  sandboxReadTool,
+  sandboxListTool,
+} from "./docker-sandbox";
 
 class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
@@ -90,6 +96,12 @@ toolRegistry.register(projectFilesDeleteTool);
 toolRegistry.register(projectCheckpointCreateTool);
 toolRegistry.register(projectCheckpointListTool);
 toolRegistry.register(projectCheckpointRestoreTool);
+
+// Docker sandbox (Phase 5)
+toolRegistry.register(sandboxExecuteTool);
+toolRegistry.register(sandboxWriteTool);
+toolRegistry.register(sandboxReadTool);
+toolRegistry.register(sandboxListTool);
 
 if (process.env.NODE_ENV === "development") {
   console.log(

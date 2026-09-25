@@ -1,21 +1,21 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 interface Project {
   id: string;
   name: string;
   description: string | null;
-  createdAt: string;
   updatedAt: string;
+  _count?: { files: number };
 }
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadProjects = () => {
     fetch("/api/projects")
       .then((r) => r.json())
       .then((data) => {
@@ -23,6 +23,10 @@ export default function ProjectsPage() {
       })
       .catch((e) => console.error("Failed to load projects:", e))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadProjects();
   }, []);
 
   const formatDate = (dateStr: string) => {
@@ -41,18 +45,20 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-neutral-200 px-6 py-5">
+    <div className="flex h-full flex-col bg-neutral-50 dark:bg-neutral-950">
+      <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-800">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-neutral-900">Projects</h1>
-            <p className="mt-1 text-sm text-neutral-500">
+            <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+              Projects
+            </h1>
+            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
               Your software projects
             </p>
           </div>
           <Link
             href="/projects/new"
-            className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+            className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14" />
@@ -70,43 +76,51 @@ export default function ProjectsPage() {
           </div>
         ) : projects.length === 0 ? (
           <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-900">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-neutral-400">
                 <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
               </svg>
             </div>
-            <h2 className="mt-4 text-base font-medium text-neutral-900">
+            <h2 className="mt-4 text-base font-medium text-neutral-900 dark:text-neutral-100">
               No projects yet
             </h2>
-            <p className="mt-1 max-w-sm text-sm text-neutral-500">
-              Ask Chuin to build a project and it will appear here.
+            <p className="mt-1 max-w-sm text-sm text-neutral-500 dark:text-neutral-400">
+              Create a project to start building with Chuin AI.
             </p>
             <Link
               href="/projects/new"
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
             >
               Create your first project
             </Link>
           </div>
         ) : (
-          <div className="mx-auto grid max-w-3xl gap-3 sm:grid-cols-2">
+          <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2">
             {projects.map((project) => (
               <Link
                 key={project.id}
                 href={`/projects/${project.id}`}
-                className="rounded-xl border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-300 hover:shadow-sm"
+                className="group rounded-xl border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
               >
-                <p className="truncate text-sm font-medium text-neutral-900">
-                  {project.name}
-                </p>
-                {project.description && (
-                  <p className="mt-1 line-clamp-2 text-xs text-neutral-500">
-                    {project.description}
-                  </p>
-                )}
-                <p className="mt-3 text-xs text-neutral-400">
-                  {formatDate(project.updatedAt)}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      {project.name}
+                    </p>
+                    {project.description && (
+                      <p className="mt-1 line-clamp-2 text-xs text-neutral-500 dark:text-neutral-400">
+                        {project.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-3 text-xs text-neutral-400">
+                  {project._count && (
+                    <span>📄 {project._count.files} files</span>
+                  )}
+                  <span>·</span>
+                  <span>{formatDate(project.updatedAt)}</span>
+                </div>
               </Link>
             ))}
           </div>

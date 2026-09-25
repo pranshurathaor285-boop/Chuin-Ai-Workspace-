@@ -14,6 +14,7 @@
     "@openrouter/ai-sdk-provider": "0.7.5",
     "@streamdown/code": "^1.1.1",
     "@streamdown/math": "^1.0.2",
+    "@webcontainer/api": "^1.6.4",
     "ai": "4.3.19",
     "bcryptjs": "^3.0.3",
     "next": "16.3.5",
