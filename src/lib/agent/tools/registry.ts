@@ -27,6 +27,9 @@ import {
   sandboxReadTool,
   sandboxListTool,
 } from "./docker-sandbox";
+import { previewStartTool, previewStopTool } from "./preview";
+import { testDetectTool, testRunTool, testParseFailureTool } from "./testing";
+import { debugAnalyzeErrorTool, debugSuggestFixTool } from "./debug";
 
 class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
@@ -102,6 +105,17 @@ toolRegistry.register(sandboxExecuteTool);
 toolRegistry.register(sandboxWriteTool);
 toolRegistry.register(sandboxReadTool);
 toolRegistry.register(sandboxListTool);
+
+// Preview (Phase 6)
+toolRegistry.register(previewStartTool);
+toolRegistry.register(previewStopTool);
+
+// Testing and debugging (Phase 7 foundation)
+toolRegistry.register(testDetectTool);
+toolRegistry.register(testRunTool);
+toolRegistry.register(testParseFailureTool);
+toolRegistry.register(debugAnalyzeErrorTool);
+toolRegistry.register(debugSuggestFixTool);
 
 if (process.env.NODE_ENV === "development") {
   console.log(

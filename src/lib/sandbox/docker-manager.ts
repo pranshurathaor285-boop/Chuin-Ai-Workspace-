@@ -20,15 +20,41 @@ interface SandboxInfo {
 // (In production, this should be in Redis or DB)
 const activeContainers = new Map<string, SandboxInfo>();
 
-const IMAGE = "node:20-alpine";
+const IMAGE = "node:20-slim";
 const CONTAINER_PREFIX = "chuin-sandbox";
 const MAX_OUTPUT_BYTES = 50000;
 const DEFAULT_TIMEOUT_MS = 30000;
+let legacyCleanupPromise: Promise<void> | null = null;
+
+/** Remove containers left behind by the previous Alpine-based sandbox image. */
+export function cleanupOldContainers(): Promise<void> {
+  if (!legacyCleanupPromise) {
+    legacyCleanupPromise = (async () => {
+      try {
+        const { stdout } = await execAsync(
+          "docker ps -aq --filter ancestor=node:20-alpine"
+        );
+        const containerIds = stdout.trim().split(/\s+/).filter(Boolean);
+        if (containerIds.length > 0) {
+          await execAsync(`docker rm -f ${containerIds.join(" ")}`);
+          console.info(`Removed ${containerIds.length} legacy sandbox container(s)`);
+        }
+      } catch (error) {
+        console.error("Failed to clean up legacy sandbox containers:", error);
+        legacyCleanupPromise = null;
+        throw error;
+      }
+    })();
+  }
+  return legacyCleanupPromise;
+}
 
 /**
  * Get or create a sandbox container for a user.
  */
 export async function getOrCreateSandbox(userId: string): Promise<string> {
+  await cleanupOldContainers();
+
   // Check if we already have an active container
   const existing = activeContainers.get(userId);
   if (existing) {
@@ -39,7 +65,8 @@ export async function getOrCreateSandbox(userId: string): Promise<string> {
       if (stdout.trim() === "true") {
         return existing.containerId;
       }
-    } catch {
+    } catch (error) {
+      console.warn("Cached sandbox container is unavailable:", error);
       // Container is gone, remove from map and create new
       activeContainers.delete(userId);
     }
@@ -50,8 +77,10 @@ export async function getOrCreateSandbox(userId: string): Promise<string> {
 
   const { stdout } = await execAsync(
     `docker run -d --name ${containerName} ` +
-      `--network none ` + // no network by default (security)
-      `--memory 512m ` +
+      `-p 0:3000 ` + // dynamic host port mapped to container 3000
+      `-p 0:5173 ` + // Vite
+      `-p 0:8080 ` + // Alt
+      `--memory 1g ` +
       `--cpus 1 ` +
       `--workdir /workspace ` +
       `--entrypoint sh ` +
@@ -128,15 +157,24 @@ export async function executeInSandbox(
       truncated: stdout.length > MAX_OUTPUT_BYTES,
       durationMs: Date.now() - startTime,
     };
-  } catch (err: any) {
+  } catch (error: unknown) {
     // exec throws on non-zero exit
-    const stdout = err.stdout || "";
-    const stderr = err.stderr || err.message || "";
+    if (!(error instanceof Error)) {
+      console.error("Sandbox command failed with a non-Error value:", error);
+      throw error;
+    }
+    const execError = error as Error & {
+      stdout?: string;
+      stderr?: string;
+      code?: number;
+    };
+    const stdout = execError.stdout || "";
+    const stderr = execError.stderr || execError.message || "";
 
     return {
       stdout: truncateOutput(stdout),
       stderr: truncateOutput(stderr),
-      exitCode: typeof err.code === "number" ? err.code : 1,
+      exitCode: typeof execError.code === "number" ? execError.code : 1,
       truncated: stdout.length > MAX_OUTPUT_BYTES,
       durationMs: Date.now() - startTime,
     };
@@ -204,8 +242,8 @@ export async function destroySandbox(userId: string): Promise<void> {
 
   try {
     await execAsync(`docker rm -f ${info.containerId}`);
-  } catch {
-    // Container may already be removed
+  } catch (error) {
+    console.warn("Failed to remove sandbox container:", error);
   }
 
   activeContainers.delete(userId);
@@ -223,4 +261,40 @@ function truncateOutput(output: string): string {
     return output.slice(0, MAX_OUTPUT_BYTES) + "\n[...truncated]";
   }
   return output;
+}
+
+
+/**
+ * Get the public URL for a container port.
+ * Returns the mapped host URL or null if not exposed.
+ */
+export async function getPortUrl(
+  userId: string,
+  containerPort: number
+): Promise<string | null> {
+  const info = activeContainers.get(userId);
+  if (!info) return null;
+
+  try {
+    const { stdout } = await execAsync(
+      `docker port ${info.containerId} ${containerPort}`
+    );
+    // Output like: 0.0.0.0:49152
+    const match = stdout.trim().match(/:(\d+)$/);
+    if (!match) return null;
+
+    const hostPort = match[1];
+    // In Codespaces, use the Codespaces URL pattern
+    const codespaceName = process.env.CODESPACE_NAME;
+    const domain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+
+    if (codespaceName && domain) {
+      return `https://${codespaceName}-${hostPort}.${domain}`;
+    }
+
+    return `http://localhost:${hostPort}`;
+  } catch (error) {
+    console.error("Failed to resolve sandbox port URL:", error);
+    return null;
+  }
 }

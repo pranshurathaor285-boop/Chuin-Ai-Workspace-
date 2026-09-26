@@ -1,30 +1,97 @@
 "use client";
 
 import { memo } from "react";
+import { PreviewCard } from "@/components/chat/preview-card";
+
+type DataRecord = Record<string, unknown>;
 
 export interface ToolResultData {
   toolName: string;
-  input: any;
-  output: any;
+  input: unknown;
+  output: unknown;
   success: boolean;
+}
+
+function asRecord(value: unknown): DataRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as DataRecord)
+    : {};
+}
+
+function asText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return fallback;
+}
+
+function asList(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function formatOutput(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2) ?? String(value);
+  } catch (error) {
+    console.error("Failed to format tool output:", error);
+    return String(value);
+  }
+}
+
+function inputSummary(input: DataRecord): string {
+  const method = asText(input.method);
+  const url = asText(input.url);
+  if (url) return `${method || "GET"} ${url}`;
+  const command = asText(input.command);
+  if (command) return command;
+  const path = asText(input.path);
+  if (path) return path;
+  const query = asText(input.query ?? input.pattern);
+  if (query) return query;
+  const checkpoint = asText(input.checkpointId ?? input.projectId);
+  if (checkpoint) return checkpoint;
+  return "No input details";
 }
 
 function CardShell({
   icon,
   title,
+  summary,
+  success,
   children,
 }: {
   icon: string;
   title: string;
+  summary: string;
+  success: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
       <div className="flex items-center gap-2 border-b border-neutral-100 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
         <span>{icon}</span>
         <span className="truncate">{title}</span>
+        <span
+          className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] ${
+            success
+              ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
+              : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+          }`}
+        >
+          {success ? "Success" : "Failed"}
+        </span>
       </div>
-      <div className="max-h-[400px] overflow-auto">{children}</div>
+      <div className="max-h-[400px] overflow-auto">
+        <div className="border-b border-neutral-100 bg-neutral-50/70 px-3 py-2 text-[11px] text-neutral-600 dark:border-neutral-800 dark:bg-neutral-950/50 dark:text-neutral-400">
+          <span className="mr-2 font-medium text-neutral-500 dark:text-neutral-500">
+            Input
+          </span>
+          <code className="break-all">{summary}</code>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -35,211 +102,169 @@ export const ToolResultCard = memo(function ToolResultCard({
   result: ToolResultData;
 }) {
   const { toolName, input, output, success } = result;
+  const args = asRecord(input);
+  const data = asRecord(output);
+  const normalizedName = toolName.replaceAll("_", ".");
+  const exitCode = typeof data.exitCode === "number" ? data.exitCode : null;
+  const succeeded =
+    success && exitCode !== null ? exitCode === 0 : success && data.error === undefined;
+  const summary = inputSummary(args);
+  const outputError = asText(data.error, typeof output === "string" ? output : "Tool execution failed");
 
-  if (!success || !output) {
+  if (normalizedName === "preview.start") {
     return (
-      <CardShell icon="⚠️" title={`${toolName} failed`}>
-        <div className="px-3 py-2 text-xs text-red-600 dark:text-red-400">
-          {output?.error || "Tool execution failed"}
-        </div>
+      <PreviewCard
+        url={typeof data.url === "string" ? data.url : null}
+        port={typeof data.port === "number" ? data.port : 3000}
+        logs={asText(data.logPreview)}
+      />
+    );
+  }
+
+  if (
+    normalizedName === "sandbox.execute" ||
+    normalizedName === "terminal.execute" ||
+    normalizedName === "git.execute"
+  ) {
+    const stdout = asText(data.stdout);
+    const stderr = asText(data.stderr);
+    return (
+      <CardShell
+        icon="⌘"
+        title={toolName}
+        summary={summary}
+        success={succeeded}
+      >
+        <pre className="m-0 overflow-x-auto px-3 py-2 text-[11px] leading-relaxed text-neutral-800 dark:text-neutral-200">
+          <code>
+            {stdout}
+            {stderr && <span className="text-red-600 dark:text-red-400">{`${stdout ? "\n" : ""}${stderr}`}</span>}
+          </code>
+        </pre>
+        {exitCode !== null && (
+          <div className="border-t border-neutral-100 px-3 py-1 text-[10px] text-neutral-500 dark:border-neutral-800">
+            <span className={exitCode === 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+              exit code: {exitCode}
+            </span>
+          </div>
+        )}
+        {!success && <div className="px-3 pb-2 text-xs text-red-600 dark:text-red-400">{outputError}</div>}
       </CardShell>
     );
   }
 
-  // filesystem.read
-  if (toolName === "filesystem.read" || toolName === "filesystem_read") {
-    const content = output.content || "";
-    const truncated = output.truncated;
+  if (
+    normalizedName === "filesystem.read" ||
+    normalizedName === "project.files.read" ||
+    normalizedName === "sandbox.read"
+  ) {
+    const content = asText(data.content ?? output);
+    const path = asText(data.path ?? args.path, "file");
     return (
-      <CardShell
-        icon="📄"
-        title={`${input?.path || "file"} (${output.size || content.length} bytes)`}
-      >
+      <CardShell icon="▤" title={`${toolName}: ${path}`} summary={summary} success={succeeded}>
         <pre className="m-0 overflow-x-auto px-3 py-2 text-[11px] leading-relaxed text-neutral-800 dark:text-neutral-200">
           <code>{content}</code>
         </pre>
-        {truncated && (
-          <div className="border-t border-neutral-100 px-3 py-1 text-[10px] text-neutral-500 dark:border-neutral-800">
-            [...truncated]
-          </div>
-        )}
       </CardShell>
     );
   }
 
-  // filesystem.write
-  if (toolName === "filesystem.write" || toolName === "filesystem_write") {
+  if (
+    normalizedName === "filesystem.write" ||
+    normalizedName === "project.files.write" ||
+    normalizedName === "sandbox.write"
+  ) {
+    const path = asText(data.path ?? args.path, "file");
+    const bytes = data.bytesWritten ?? data.size ?? (typeof args.content === "string" ? args.content.length : undefined);
+    const status =
+      data.created === true
+        ? "Created"
+        : data.created === false
+          ? "Updated"
+          : "Created/updated";
     return (
-      <CardShell icon="✍️" title={`Wrote ${input?.path || "file"}`}>
-        <div className="px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
-          <div>
-            Bytes written:{" "}
-            <span className="font-mono font-medium text-neutral-900 dark:text-neutral-100">
-              {output.bytesWritten}
-            </span>
-          </div>
-          <div>
-            Status:{" "}
-            <span className="font-medium text-green-600 dark:text-green-400">
-              {output.created ? "Created" : "Updated"}
-            </span>
-          </div>
+      <CardShell icon="✎" title={`${toolName}: ${path}`} summary={summary} success={succeeded}>
+        <div className="space-y-1 px-3 py-2 text-xs text-neutral-700 dark:text-neutral-300">
+          <div>{status}{bytes === undefined ? "" : ` · ${String(bytes)} bytes written`}</div>
         </div>
       </CardShell>
     );
   }
 
-  // filesystem.edit
-  if (toolName === "filesystem.edit" || toolName === "filesystem_edit") {
+  if (
+    normalizedName === "filesystem.list" ||
+    normalizedName === "project.files.list" ||
+    normalizedName === "sandbox.list"
+  ) {
+    const listing = data.listing;
+    const entries = asList(data.entries);
+    const body = typeof listing === "string" ? listing : entries.length > 0 ? formatOutput(entries) : formatOutput(output);
     return (
-      <CardShell icon="✏️" title={`Edited ${input?.path || "file"}`}>
-        <div className="px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
-          Replacements:{" "}
-          <span className="font-mono font-medium text-neutral-900 dark:text-neutral-100">
-            {output.replacements}
-          </span>
-        </div>
-      </CardShell>
-    );
-  }
-
-  // filesystem.delete
-  if (toolName === "filesystem.delete" || toolName === "filesystem_delete") {
-    return (
-      <CardShell icon="🗑️" title={`Deleted ${input?.path || "item"}`}>
-        <div className="px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
-          Type: {output.type}
-        </div>
-      </CardShell>
-    );
-  }
-
-  // filesystem.list
-  if (toolName === "filesystem.list" || toolName === "filesystem_list") {
-    const entries = output.entries || [];
-    return (
-      <CardShell icon="📁" title={`${output.total || entries.length} entries`}>
-        <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-          {entries.slice(0, 30).map((entry: any, i: number) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs text-neutral-700 dark:text-neutral-300"
-            >
-              <span>{entry.type === "directory" ? "📁" : "📄"}</span>
-              <span className="flex-1 truncate font-mono text-[11px]">
-                {entry.path}
-              </span>
-              {entry.size !== undefined && (
-                <span className="text-[10px] text-neutral-400">
-                  {entry.size} B
-                </span>
-              )}
-            </div>
-          ))}
-          {entries.length > 30 && (
-            <div className="px-3 py-1.5 text-[10px] text-neutral-500">
-              ...and {entries.length - 30} more
-            </div>
-          )}
-        </div>
-      </CardShell>
-    );
-  }
-
-  // filesystem.search
-  if (toolName === "filesystem.search" || toolName === "filesystem_search") {
-    const matches = output.matches || [];
-    return (
-      <CardShell
-        icon="🔍"
-        title={`${output.totalMatches || matches.length} matches in ${output.totalFiles} files`}
-      >
-        <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-          {matches.slice(0, 20).map((m: any, i: number) => (
-            <div key={i} className="px-3 py-2 text-xs">
-              <div className="flex items-center gap-2 text-[10px] text-neutral-500">
-                <span className="font-mono">{m.file}</span>
-                <span>:</span>
-                <span>{m.line}</span>
-              </div>
-              <div className="mt-0.5 truncate font-mono text-[11px] text-neutral-700 dark:text-neutral-300">
-                {m.content}
-              </div>
-            </div>
-          ))}
-          {matches.length > 20 && (
-            <div className="px-3 py-1.5 text-[10px] text-neutral-500">
-              ...and {matches.length - 20} more
-            </div>
-          )}
-        </div>
-      </CardShell>
-    );
-  }
-
-  // terminal.execute
-  if (toolName === "terminal.execute" || toolName === "terminal_execute") {
-    return (
-      <CardShell icon="💻" title={`$ ${input?.command || "command"}`}>
+      <CardShell icon="▰" title={toolName} summary={summary} success={succeeded}>
         <pre className="m-0 overflow-x-auto px-3 py-2 text-[11px] leading-relaxed text-neutral-800 dark:text-neutral-200">
-          <code>
-            {output.stdout || ""}
-            {output.stderr && (
-              <span className="text-red-600 dark:text-red-400">
-                {"\n" + output.stderr}
-              </span>
-            )}
-          </code>
-        </pre>
-        <div className="border-t border-neutral-100 px-3 py-1 text-[10px] text-neutral-500 dark:border-neutral-800">
-          exit code: {output.exitCode}
-        </div>
-      </CardShell>
-    );
-  }
-
-  // http.request
-  if (toolName === "http.request" || toolName === "http_request") {
-    return (
-      <CardShell
-        icon="🌐"
-        title={`${output.status} ${output.statusText} · ${output.durationMs}ms`}
-      >
-        <div className="px-3 py-2">
-          <div className="mb-2 font-mono text-[10px] text-neutral-500">
-            {input?.method || "GET"} {input?.url}
-          </div>
-          <pre className="m-0 max-h-[200px] overflow-auto rounded bg-neutral-50 p-2 text-[10px] text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
-            <code>{output.body?.slice(0, 2000) || ""}</code>
-          </pre>
-        </div>
-      </CardShell>
-    );
-  }
-
-  // git.execute
-  if (toolName === "git.execute" || toolName === "git_execute") {
-    return (
-      <CardShell icon="🔀" title={`$ git ${input?.command || ""}`}>
-        <pre className="m-0 overflow-x-auto px-3 py-2 text-[11px] leading-relaxed text-neutral-800 dark:text-neutral-200">
-          <code>
-            {output.stdout || ""}
-            {output.stderr && (
-              <span className="text-red-600 dark:text-red-400">
-                {"\n" + output.stderr}
-              </span>
-            )}
-          </code>
+          <code>{body}</code>
         </pre>
       </CardShell>
     );
   }
 
-  // Fallback
+  if (normalizedName === "filesystem.search") {
+    return (
+      <CardShell icon="⌕" title={toolName} summary={summary} success={succeeded}>
+        <pre className="m-0 overflow-x-auto px-3 py-2 text-[11px] leading-relaxed text-neutral-800 dark:text-neutral-200">
+          <code>{formatOutput(data.matches ?? output)}</code>
+        </pre>
+      </CardShell>
+    );
+  }
+
+  if (
+    normalizedName === "filesystem.delete" ||
+    normalizedName === "project.files.delete"
+  ) {
+    return (
+      <CardShell icon="⌫" title={toolName} summary={summary} success={succeeded}>
+        <pre className="m-0 overflow-x-auto px-3 py-2 text-xs text-neutral-700 dark:text-neutral-300">
+          <code>{formatOutput(output)}</code>
+        </pre>
+      </CardShell>
+    );
+  }
+
+  if (normalizedName === "filesystem.edit") {
+    return (
+      <CardShell icon="✎" title={toolName} summary={summary} success={succeeded}>
+        <div className="px-3 py-2 text-xs text-neutral-700 dark:text-neutral-300">
+          Replacements: {asText(data.replacements, formatOutput(output))}
+        </div>
+      </CardShell>
+    );
+  }
+
+  if (normalizedName === "http.request") {
+    return (
+      <CardShell icon="↗" title={toolName} summary={summary} success={succeeded}>
+        <pre className="m-0 overflow-auto px-3 py-2 text-[11px] text-neutral-700 dark:text-neutral-300">
+          <code>{asText(data.body, formatOutput(output)).slice(0, 4000)}</code>
+        </pre>
+      </CardShell>
+    );
+  }
+
+  if (normalizedName.startsWith("project.checkpoint.")) {
+    return (
+      <CardShell icon="◷" title={toolName} summary={summary} success={succeeded}>
+        <pre className="m-0 overflow-x-auto px-3 py-2 text-[11px] text-neutral-700 dark:text-neutral-300">
+          <code>{formatOutput(output)}</code>
+        </pre>
+      </CardShell>
+    );
+  }
+
   return (
-    <CardShell icon="🔧" title={toolName}>
+    <CardShell icon="⚙" title={toolName} summary={summary} success={succeeded}>
       <pre className="m-0 overflow-x-auto px-3 py-2 text-[10px] text-neutral-700 dark:text-neutral-300">
-        <code>{JSON.stringify(output, null, 2).slice(0, 1000)}</code>
+        <code>{formatOutput(output).slice(0, 4000)}</code>
       </pre>
     </CardShell>
   );

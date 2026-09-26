@@ -1,34 +1,34 @@
+import { getToken } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/config";
 import { prisma } from "@/lib/prisma";
 
-/**
- * Validates that the current session's user still exists in the database.
- * Returns 200 if user exists, 401 if not (session should be cleared).
- */
-export async function GET() {
+export const runtime = "nodejs";
+
+export async function GET(request: NextRequest) {
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET,
+  });
+  const userId = token?.id ?? token?.sub;
+
+  if (typeof userId !== "string" || userId.length === 0) {
+    return NextResponse.json({ valid: false }, { status: 401 });
+  }
+
   try {
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      return NextResponse.json({ valid: false }, { status: 401 });
-    }
-
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true },
     });
-
-    if (!user) {
-      return NextResponse.json({ valid: false }, { status: 401 });
-    }
-
-    return NextResponse.json({ valid: true });
+    return user
+      ? NextResponse.json({ valid: true })
+      : NextResponse.json({ valid: false }, { status: 401 });
   } catch (error) {
-    console.error("Session validation error:", error);
-    // Fail open — don't block user on validation errors
-    return NextResponse.json({ valid: true }, { status: 200 });
+    console.error("Failed to validate session user:", error);
+    return NextResponse.json(
+      { error: "Session validation failed" },
+      { status: 500 }
+    );
   }
 }

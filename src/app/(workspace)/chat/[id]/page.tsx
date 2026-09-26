@@ -50,6 +50,59 @@ interface PendingFile {
   mimeType: string;
 }
 
+interface ToolInvocationView {
+  toolName: string;
+  input: unknown;
+  output: unknown;
+  success: boolean;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readToolInvocations(message: unknown): ToolInvocationView[] {
+  const messageRecord = asRecord(message);
+  const legacyInvocations = Array.isArray(messageRecord.toolInvocations)
+    ? messageRecord.toolInvocations
+    : [];
+  const parts = Array.isArray(messageRecord.parts) ? messageRecord.parts : [];
+  const partInvocations = parts.flatMap((part): unknown[] => {
+    const partRecord = asRecord(part);
+    const type = typeof partRecord.type === "string" ? partRecord.type : "";
+    if (type === "tool-invocation") {
+      return [partRecord.toolInvocation ?? part];
+    }
+    return type.startsWith("tool-") ? [{ ...partRecord, toolName: type.slice(5) }] : [];
+  });
+
+  const invocations =
+    legacyInvocations.length > 0 ? legacyInvocations : partInvocations;
+  return invocations.flatMap((invocation) => {
+    const record = asRecord(invocation);
+    const nested = asRecord(record.toolInvocation);
+    const value = Object.keys(nested).length > 0 ? nested : record;
+    const toolName = value.toolName;
+    if (typeof toolName !== "string") return [];
+    const state = value.state;
+    const output = value.result ?? value.output ?? value.error;
+    const hasOutput = output !== undefined;
+    return [{
+      toolName,
+      input: value.args ?? value.input,
+      output,
+      success:
+        (state === "result" ||
+          state === "output" ||
+          state === "output-available" ||
+          hasOutput) &&
+        value.error === undefined,
+    }];
+  });
+}
+
 export default function ChatPage() {
   const params = useParams();
   const urlId = params.id as string;
@@ -105,15 +158,25 @@ export default function ChatPage() {
     if (isNew || historyLoaded) return;
     fetch(`/api/conversations/${urlId}`)
       .then((r) => r.json())
-      .then((data) => {
-        if (data.messages && Array.isArray(data.messages) && setMessages) {
-          setMessages(
-            data.messages.map((m: any) => ({
-              id: m.id,
-              role: m.role as "user" | "assistant",
-              content: m.content,
-            }))
-          );
+      .then((response: unknown) => {
+        const data = asRecord(response);
+        if (Array.isArray(data.messages) && setMessages) {
+          const history = data.messages.flatMap((message): Array<{
+            id: string;
+            role: "user" | "assistant";
+            content: string;
+          }> => {
+            const item = asRecord(message);
+            if (
+              typeof item.id !== "string" ||
+              typeof item.content !== "string" ||
+              (item.role !== "user" && item.role !== "assistant")
+            ) {
+              return [];
+            }
+            return [{ id: item.id, role: item.role, content: item.content }];
+          });
+          setMessages(history);
         }
       })
       .catch((e) => console.error("Failed to load history:", e))
@@ -271,7 +334,7 @@ export default function ChatPage() {
 
   const renderedMessages = useMemo(() => {
     return messages.map((m, idx) => {
-      const toolInvocations = (m as any).toolInvocations || [];
+      const toolInvocations = readToolInvocations(m);
 
       return (
         <div key={m.id} className="space-y-3">
@@ -286,14 +349,14 @@ export default function ChatPage() {
             <>
               {toolInvocations.length > 0 && (
                 <div className="space-y-2">
-                  {toolInvocations.map((inv: any, i: number) => (
+                  {toolInvocations.map((inv, i) => (
                     <ToolResultCard
-                      key={`${m.id}-tool-${i}`}
+                      key={`${m.id}-tool-${inv.toolName}-${i}`}
                       result={{
                         toolName: inv.toolName,
-                        input: inv.args,
-                        output: inv.result,
-                        success: inv.state === "result",
+                        input: inv.input,
+                        output: inv.output,
+                        success: inv.success,
                       }}
                     />
                   ))}
